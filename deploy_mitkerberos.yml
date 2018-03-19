@@ -1,0 +1,95 @@
+---
+- hosts: mit01
+  name: provision and install kerberos
+  tasks:
+    - name: install libselinux-python
+      become: yes
+      become_method: sudo
+      yum:
+        name: libselinux-python
+        state: present
+    - name: install MIT Kerberos
+      become: yes
+      become_method: sudo
+      yum:
+        name: "{{ item }}"
+      with_items:
+        - krb5-server
+        - krb5-libs
+        - krb5-auth-dialog
+#       - yum install krb5-server krb5-libs krb5-auth-dialog
+    - name: addresss localhost issue
+      become: yes
+      become_method: sudo
+      lineinfile:
+        dest: /etc/hosts
+#       path: /etc/hosts    #Only good for Ansible > 2.3, use dest= for Ansible < 2.3
+        regexp: '^127\.0\.0\.1'
+        line: '#127.0.0.1'
+        owner: root
+        group: root
+        mode: 0644
+    - name: update default_realm
+      become: yes
+      become_method: sudo 
+      lineinfile:
+        dest: /etc/krb5.conf
+        regexp: 'default_realm = EXAMPLE.COM'
+        line: 'default_realm = hdpdev.com'
+    - name: update domain kdc
+      become: yes
+      become_method: sudo 
+      replace:
+        dest: /etc/krb5.conf
+        regexp: 'kdc = kerberos.example.com'
+        replace: 'kdc = mit01.hdpdev.com'
+    - name: update domain admin_server
+      become: yes
+      become_method: sudo 
+      replace:
+        dest: /etc/krb5.conf
+        regexp: 'admin_server = kerberos.example.com'
+        replace: 'admin_server = mit01.hdpdev.com'
+    - name: update domain initialization1
+      become: yes
+      become_method: sudo 
+      replace:
+        dest: /etc/krb5.conf
+        regexp: '.example.com = EXAMPLE.COM'
+        replace: '.hdpdev.com = HDPDEV.COM'
+    - name: update domain initialization2
+      become: yes
+      become_method: sudo 
+      replace:
+        dest: /etc/krb5.conf
+        regexp: 'example.com = EXAMPLE.COM'
+        replace: 'hdpdev.com = HDPDEV.COM'
+    - name: update domain
+      become: yes
+      become_method: sudo 
+      replace:
+        dest: /etc/krb5.conf
+        regexp: 'EXAMPLE.COM'
+        replace: 'HDPDEV.COM'
+
+    - name: update kdc.conf
+      become: yes
+      become_method: sudo 
+      replace:
+        dest: /var/kerberos/krb5kdc/kdc.conf
+        regexp: 'EXAMPLE.COM'
+        replace: 'HDPDEV.COM'
+    - name: update kadm5.acl
+      become: yes
+      become_method: sudo 
+      replace:
+        dest: /var/kerberos/krb5kdc/kadm5.acl
+        regexp: '@EXAMPLE.COM'
+        replace: '@HDPDEV.COM'
+    - name: create KDC database
+      become: yes
+      become_method: sudo
+#     shell: kdb5_util create -r HDPDEV.COM -s
+      shell: echo -e "P@ssw0rd\nP@ssw0rd" | kdb5_util create -r HDPDEV.COM -s
+      register: kdb5_create
+    - debug: var=kdb5_create.stdout_lines
